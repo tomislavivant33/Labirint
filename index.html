@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Labirint straha</title>
+<style>
+  :root{
+    --bg:#0b0d13; --panel:#151a26; --panel2:#1d2434; --line:#2a3350;
+    --text:#e8ecf5; --mute:#8d97b3; --red:#ff3b3b; --blue:#4fc3f7; --gold:#ffd54f;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;touch-action:none;
+    -webkit-user-select:none;user-select:none}
+  .hidden{display:none!important}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+
+  .screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;
+    background:radial-gradient(ellipse at 50% 30%,#1a2036 0%,#0b0d13 70%);overflow:auto;touch-action:pan-y}
+  .card{width:100%;max-width:440px;background:var(--panel);border:1px solid var(--line);border-radius:18px;
+    padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  h1{margin:0 0 2px;font-size:30px;letter-spacing:.06em;text-transform:uppercase}
+  h1 b{color:var(--red)}
+  .tag{color:var(--mute);margin:0 0 18px;font-size:14px}
+  label{display:block;font-size:12px;color:var(--mute);margin:12px 0 5px;text-transform:uppercase;letter-spacing:.08em}
+  input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);
+    color:var(--text);font-size:17px;outline:none;-webkit-user-select:text;user-select:text}
+  input:focus{border-color:var(--blue)}
+  #inRoom{text-transform:uppercase;letter-spacing:.3em;text-align:center;font-weight:700}
+  .row{display:flex;gap:10px;margin-top:14px}
+  button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:13px 16px;font-weight:700;font-size:16px;
+    color:#fff;background:#2c3654;touch-action:manipulation}
+  button:active{transform:scale(.97)}
+  button.pri{background:var(--red)}
+  button.sec{background:#2c3654}
+  button:disabled{opacity:.4;cursor:default}
+  .row button{flex:1}
+  .err{min-height:20px;margin-top:12px;color:#ff8a80;font-size:14px}
+  .how{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;color:var(--mute);line-height:1.5}
+  .how b{color:var(--text)}
+  .live{color:#81c784;text-transform:none;letter-spacing:0;margin-left:6px}
+  label.chk{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:13px;margin:10px 0 0;cursor:pointer}
+  label.chk input{width:auto;padding:0;margin:0}
+  ul.rooms{margin:6px 0 10px;max-height:150px;overflow:auto;touch-action:pan-y}
+  ul.rooms li{cursor:pointer;font-size:14px;gap:8px;padding:9px 12px}
+  ul.rooms li.empty{cursor:default;color:var(--mute);justify-content:center}
+  ul.rooms li:active{background:#26304a}
+  .rcode{font-weight:800;letter-spacing:.15em;color:var(--gold)}
+  .rst{margin-left:auto;color:var(--mute);font-size:12px;text-align:right}
+  .rst.play{color:#ffab91}
+  .pubtag{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:8px;background:#1f3b2a;color:#81c784;font-size:12px;letter-spacing:0;vertical-align:middle}
+  .code{font-size:46px;font-weight:800;letter-spacing:.25em;text-align:center;color:var(--gold);margin:4px 0 2px}
+  .small-note{text-align:center;color:var(--mute);font-size:13px}
+  ul.pl{list-style:none;margin:14px 0;padding:0}
+  ul.pl li{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--panel2);border-radius:10px;margin-bottom:6px}
+  .dot{width:14px;height:14px;border-radius:50%;flex:none}
+  .pl .me{margin-left:auto;font-size:12px;color:var(--mute)}
+  .crown{color:var(--gold);font-size:12px;margin-left:auto}
+
+  /* HUD */
+  #hud{position:fixed;inset:0;pointer-events:none}
+  #topc{position:absolute;top:calc(8px + env(safe-area-inset-top));left:0;right:0;text-align:center}
+  #timer{font-size:40px;font-weight:800;font-variant-numeric:tabular-nums;text-shadow:0 2px 10px #000}
+  #timer.low{color:var(--red);animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.45}}
+  #sub{font-size:14px;color:#cfd6ea;text-shadow:0 1px 6px #000}
+  #roleBadge.k{color:var(--red);font-weight:800}
+  #roleBadge.s{color:var(--blue);font-weight:800}
+  #roleBadge.d{color:var(--mute);font-weight:800}
+  #btnLeave{pointer-events:auto;position:absolute;top:calc(10px + env(safe-area-inset-top));left:10px;width:40px;height:40px;
+    padding:0;background:rgba(20,24,36,.7);border-radius:50%;font-size:16px}
+  #bars{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(46px + env(safe-area-inset-bottom));width:min(280px,60vw)}
+  .bar{height:9px;border-radius:5px;background:rgba(0,0,0,.55);overflow:hidden;border:1px solid rgba(255,255,255,.12)}
+  .bar>div{height:100%;width:100%;transition:width .08s linear}
+  #stam{background:linear-gradient(90deg,#4fc3f7,#81d4fa)}
+  #stam.ex{background:#8d6e63}
+  #cd{background:linear-gradient(90deg,#ff3b3b,#ff8a65)}
+  #hint{position:absolute;left:0;right:0;bottom:calc(14px + env(safe-area-inset-bottom));text-align:center;
+    font-size:13px;color:#aab3cc;text-shadow:0 1px 6px #000}
+  #toast{position:absolute;top:22%;left:0;right:0;text-align:center;font-size:20px;font-weight:700;
+    text-shadow:0 2px 12px #000;opacity:0;transition:opacity .25s;padding:0 16px}
+  #toast.show{opacity:1}
+  #toast.bad{color:#ff6e6e}
+  #toast.warn{color:var(--gold)}
+  #banner{position:absolute;top:34%;left:0;right:0;text-align:center;padding:0 20px;text-shadow:0 3px 16px #000}
+  #banner .big{font-size:clamp(28px,7vw,54px);font-weight:900;letter-spacing:.04em}
+  #banner .mid{font-size:clamp(15px,3.6vw,20px);margin-top:8px;color:#d6dcf0}
+  #banner .num{font-size:clamp(60px,16vw,120px);font-weight:900;line-height:1}
+  #stickBase{position:absolute;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;
+    background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.18)}
+  #stickKnob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;
+    background:rgba(255,255,255,.32)}
+  .act{pointer-events:auto;position:absolute;right:18px;width:92px;height:92px;border-radius:50%;
+    font-size:15px;letter-spacing:.04em;border:2px solid rgba(255,255,255,.3);padding:0}
+  #btnAct{bottom:calc(120px + env(safe-area-inset-bottom));background:rgba(255,59,59,.78)}
+  #btnSprint{bottom:calc(18px + env(safe-area-inset-bottom));background:rgba(79,195,247,.6)}
+  #btnAct.spec{background:rgba(120,130,160,.7)}
+  #btnAct.cool{filter:grayscale(.8) brightness(.7)}
+
+  #endTitle{font-size:28px;font-weight:900;margin:0 0 4px;text-align:center}
+  #endTitle.win{color:#81c784} #endTitle.lose{color:#ff6e6e}
+  #endReason{text-align:center;color:var(--mute);margin-bottom:12px}
+  table{width:100%;border-collapse:collapse;font-size:15px}
+  td{padding:8px 6px;border-bottom:1px solid var(--line)}
+  td.r{text-align:right;color:var(--mute);font-variant-numeric:tabular-nums}
+  .k-tag{color:var(--red);font-weight:700}
+  .ok-tag{color:#81c784}
+</style>
+</head>
+<body>
+
+<canvas id="cv"></canvas>
+
+<div id="hud" class="hidden">
+  <button id="btnLeave" title="Izađi">✕</button>
+  <div id="topc">
+    <div id="timer">2:00</div>
+    <div id="sub"><span id="roleBadge"></span> · <span id="aliveInfo"></span></div>
+  </div>
+  <div id="bars">
+    <div class="bar" id="stamWrap"><div id="stam"></div></div>
+    <div class="bar hidden" id="cdWrap"><div id="cd"></div></div>
+  </div>
+  <div id="hint"></div>
+  <div id="toast"></div>
+  <div id="banner"></div>
+  <div id="stickBase" class="hidden"><div id="stickKnob"></div></div>
+  <button id="btnAct" class="act hidden">UBIJ</button>
+  <button id="btnSprint" class="act hidden">TRČI</button>
+</div>
+
+<div id="screenMenu" class="screen">
+  <div class="card">
+    <h1>Labirint <b>straha</b></h1>
+    <p class="tag">Jedan je ubojica. Ostali moraju preživjeti 2 minute.</p>
+    <label for="inName">Tvoje ime</label>
+    <input id="inName" maxlength="14" placeholder="npr. Tomislav" autocomplete="off">
+    <div class="row"><button id="btnQuick" class="pri">Brzo igraj – javni server</button></div>
+    <label>Javne sobe <span id="onlineInfo" class="live"></span></label>
+    <ul class="pl rooms" id="roomList"><li class="empty">Učitavam…</li></ul>
+    <div class="row">
+      <button id="btnCreate" class="sec">Nova soba</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="chkPublic"> Javna soba (svatko je može vidjeti i ući)</label>
+    <label for="inRoom">ili upiši kod sobe</label>
+    <input id="inRoom" maxlength="4" placeholder="ABCD" autocomplete="off">
+    <div class="row"><button id="btnJoin" class="sec">Uđi u sobu</button></div>
+    <div class="err" id="menuErr"></div>
+    <div class="how">
+      <b>Preživjeli:</b> bježi i skrivaj se, <b>SHIFT</b> = trčanje (kratko). Čuj otkucaje srca – što brže, ubojica je bliže.<br>
+      <b>Ubojica:</b> lovi ih i pritisni <b>RAZMAK</b> kad si blizu. Svakih ~25 s osjetiš sve preživjele na 3 sekunde.<br>
+      Kretanje: <b>WASD / strelice</b> ili joystick na mobitelu. 2–10 igrača.
+    </div>
+  </div>
+</div>
+
+<div id="screenLobby" class="screen hidden">
+  <div class="card">
+    <div class="small-note">Kod sobe <span id="pubTag" class="pubtag hidden">javna</span></div>
+    <div class="code" id="lobbyCode">----</div>
+    <div class="row"><button id="btnShare" class="sec">Kopiraj poveznicu</button></div>
+    <ul class="pl" id="lobbyList"></ul>
+    <div class="row">
+      <button id="btnLobbyLeave" class="sec">Izađi</button>
+      <button id="btnStart" class="pri">Pokreni igru</button>
+    </div>
+    <div class="err" id="lobbyErr" style="text-align:center"></div>
+  </div>
+</div>
+
+<div id="screenEnd" class="screen hidden">
+  <div class="card">
+    <div id="endTitle">KRAJ</div>
+    <div id="endReason"></div>
+    <table id="endTable"></table>
+    <div class="row"><button id="btnBack" class="pri">Natrag u predvorje</button></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  SERVER_URL – OVDJE UPIŠI ADRESU SVOG SERVERA
+//  Primjer:  const SERVER_URL = 'https://labirint-straha.onrender.com';
+//  (može i wss://... ili samo labirint-straha.onrender.com)
+//  Ako ostane prazno, igra koristi server s kojeg je učitana.
+// ============================================================
+const SERVER_URL = '';
+// ============================================================
+
+(() => {
+'use strict';
+
+// Iz upisane adrese složi WebSocket i HTTP adresu (prihvaća https://, http://, wss://, ws:// ili samo domenu).
+const SERVER = (() => {
+  let u = String(SERVER_URL || '').trim().replace(/\/+$/, '');
+  if (!u) return { ws: '', http: '' };
+  if (!/^[a-z]+:\/\//i.test(u)) u = 'https://' + u;
+  const secure = /^(https|wss):\/\//i.test(u);
+  const host = u.replace(/^[a-z]+:\/\//i, '');
+  return { ws: (secure ? 'wss://' : 'ws://') + host, http: (secure ? 'https://' : 'http://') + host };
+})();
+
+const $ = id => document.getElementById(id);
+const COLORS = ['#4fc3f7', '#81c784', '#ffd54f', '#ba68c8', '#ff8a65', '#4db6ac', '#f06292', '#aed581', '#9575cd', '#e0e0e0'];
+const RED = '#ff3b3b';
+const isTouch = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
+
+let ws = null, myId = null, roomCode = '', hostId = null, lobbyPlayers = [], lobbyPub = false, lobbyCd = 0;
+let G = null;            // stanje igre
+let inGame = false, showingEnd = false;
+let rafId = 0;
+
+// ---------- pomoćno ----------
+const ls = {
+  get(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+function show(id, on) { $(id).classList.toggle('hidden', !on); }
+function screen(name) {
+  show('screenMenu', name === 'menu');
+  show('screenLobby', name === 'lobby');
+  show('screenEnd', name === 'end');
+  show('hud', name === 'game');
+  if (name === 'menu') refreshRooms();
+}
+function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+function fmt(t) { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+
+// ---------- zvuk (sintetiziran, bez datoteka) ----------
+let AC = null;
+function audio() {
+  if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (AC && AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function tone(f, d = 0.15, type = 'sine', v = 0.15, slide = 0, delay = 0) {
+  const a = audio(); if (!a) return;
+  const t = a.currentTime + delay;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(f, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, f + slide), t + d);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, v), t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g); g.connect(a.destination);
+  o.start(t); o.stop(t + d + 0.03);
+}
+function noise(d = 0.2, v = 0.2, delay = 0) {
+  const a = audio(); if (!a) return;
+  const t = a.currentTime + delay;
+  const buf = a.createBuffer(1, Math.max(1, Math.floor(a.sampleRate * d)), a.sampleRate);
+  const ch = buf.getChannelData(0);
+  for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / ch.length);
+  const s = a.createBufferSource(); s.buffer = buf;
+  const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1200;
+  const g = a.createGain(); g.gain.value = v;
+  s.connect(f); f.connect(g); g.connect(a.destination);
+  s.start(t);
+}
+const sfx = {
+  beep() { tone(880, 0.08, 'square', 0.06); },
+  go() { tone(523, 0.12, 'triangle', 0.15); tone(784, 0.25, 'triangle', 0.15, 0, 0.12); },
+  heart(v) { tone(62, 0.13, 'sine', v, -28); tone(55, 0.13, 'sine', v * 0.8, -24, 0.17); },
+  kill(v) { noise(0.3, 0.35 * v); tone(240, 0.5, 'sawtooth', 0.18 * v, -190); },
+  pulse() { tone(110, 0.7, 'sawtooth', 0.14, -35); tone(104, 0.7, 'sawtooth', 0.14, -35, 0.4); },
+  miss() { noise(0.08, 0.1); },
+  win() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.22, 'triangle', 0.15, 0, i * 0.13)); },
+  lose() { [392, 330, 262, 196].forEach((f, i) => tone(f, 0.3, 'sawtooth', 0.1, 0, i * 0.18)); },
+};
+
+// ---------- mreža ----------
+function setMenuErr(t) { $('menuErr').textContent = t || ''; }
+
+function openSocket(first) {
+  if (!SERVER.ws && location.protocol === 'file:') {
+    setMenuErr('Upiši adresu servera u SERVER_URL na vrhu index.html ili otvori igru preko adrese servera.');
+    return;
+  }
+  closeSocket();
+  const url = SERVER.ws || ((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  setMenuErr('Spajanje… (besplatni server se zna buditi i do minute)');
+  let s;
+  try { s = new WebSocket(url); } catch (e) { setMenuErr('Neispravna adresa servera.'); return; }
+  ws = s;
+  s.onopen = () => { setMenuErr(''); s.send(JSON.stringify(first)); };
+  s.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (x) { return; } onMsg(m); };
+  s.onclose = () => { if (ws === s) { ws = null; onDisconnected(); } };
+  s.onerror = () => {};
+}
+function closeSocket() {
+  if (ws) { const s = ws; ws = null; try { s.close(); } catch (e) {} }
+}
+function onDisconnected() {
+  const wasActive = inGame || !$('screenLobby').classList.contains('hidden') || showingEnd;
+  stopGame();
+  showingEnd = false;
+  screen('menu');
+  setMenuErr(wasActive ? 'Veza sa serverom je prekinuta.' : 'Ne mogu se spojiti na server.');
+}
+
+function onMsg(m) {
+  switch (m.t) {
+    case 'err':
+      if (m.soft) { $('lobbyErr').textContent = m.msg; return; }
+      setMenuErr(m.msg); closeSocket(); screen('menu'); break;
+    case 'lobby':
+      myId = m.you; roomCode = m.room; hostId = m.host; lobbyPlayers = m.players;
+      lobbyPub = !!m.pub; lobbyCd = m.cd || 0;
+      renderLobby();
+      if (!inGame && !showingEnd) screen('lobby');
+      break;
+    case 'cd':
+      lobbyCd = m.s; renderLobby(); break;
+    case 'start': startGame(m); break;
+    case 's': onState(m); break;
+    case 'ev': onEvent(m); break;
+    case 'end': onEnd(m); break;
+  }
+}
+
+// ---------- izbornik / predvorje ----------
+$('inName').value = ls.get('lab_name');
+const urlRoom = new URLSearchParams(location.search).get('soba');
+if (urlRoom) $('inRoom').value = urlRoom.toUpperCase().slice(0, 4);
+
+function curName() {
+  const n = $('inName').value.trim();
+  ls.set('lab_name', n);
+  return n;
+}
+$('btnCreate').onclick = () => {
+  audio(); setMenuErr('');
+  openSocket({ t: 'create', name: curName(), public: $('chkPublic').checked });
+};
+$('btnQuick').onclick = () => { audio(); setMenuErr(''); openSocket({ t: 'quick', name: curName() }); };
+
+// popis javnih soba (osvježava se dok je izbornik otvoren)
+function renderRooms(d) {
+  const ul = $('roomList'); ul.innerHTML = '';
+  $('onlineInfo').textContent = d.online ? '● ' + d.online + ' online' : '';
+  if (!d.rooms.length) {
+    const li = document.createElement('li'); li.className = 'empty';
+    li.textContent = 'Nema javnih soba – klikni „Brzo igraj” i otvori prvu.';
+    ul.append(li); return;
+  }
+  d.rooms.forEach(r => {
+    const li = document.createElement('li');
+    const c = document.createElement('span'); c.className = 'rcode'; c.textContent = r.code;
+    const h = document.createElement('span'); h.textContent = r.host;
+    const s = document.createElement('span'); s.className = 'rst' + (r.phase === 'play' ? ' play' : '');
+    s.textContent = r.n + '/' + r.max + (r.phase === 'play' ? ' · u tijeku (gledaš)' : ' · čeka');
+    li.append(c, h, s);
+    li.onclick = () => { audio(); setMenuErr(''); openSocket({ t: 'join', name: curName(), room: r.code }); };
+    ul.append(li);
+  });
+}
+async function refreshRooms() {
+  if ($('screenMenu').classList.contains('hidden')) return;
+  if (!SERVER.http && location.protocol === 'file:') return;
+  try {
+    const base = SERVER.http;
+    const r = await fetch(base + '/api/rooms', { cache: 'no-store' });
+    renderRooms(await r.json());
+  } catch (e) {
+    const ul = $('roomList'); ul.innerHTML = '';
+    const li = document.createElement('li'); li.className = 'empty'; li.textContent = 'Popis soba trenutno nije dostupan.';
+    ul.append(li);
+  }
+}
+setInterval(refreshRooms, 3000);
+refreshRooms();
+$('btnJoin').onclick = () => {
+  audio(); setMenuErr('');
+  const r = $('inRoom').value.trim().toUpperCase();
+  if (r.length !== 4) { setMenuErr('Kod sobe ima 4 slova.'); return; }
+  openSocket({ t: 'join', name: curName(), room: r });
+};
+$('inRoom').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); });
+$('btnLobbyLeave').onclick = () => { closeSocket(); screen('menu'); setMenuErr(''); };
+$('btnStart').onclick = () => { audio(); $('lobbyErr').textContent = ''; send({ t: 'start' }); };
+$('btnShare').onclick = async () => {
+  const link = location.origin + location.pathname + '?soba=' + roomCode;
+  try { await navigator.clipboard.writeText(link); $('btnShare').textContent = 'Kopirano ✓'; }
+  catch (e) { $('btnShare').textContent = link; }
+  setTimeout(() => { $('btnShare').textContent = 'Kopiraj poveznicu'; }, 2500);
+};
+$('btnBack').onclick = () => {
+  showingEnd = false;
+  if (ws) screen('lobby'); else screen('menu');
+};
+$('btnLeave').onclick = () => {
+  if (confirm('Izaći iz igre?')) { closeSocket(); stopGame(); screen('menu'); setMenuErr(''); }
+};
+
+function renderLobby() {
+  $('lobbyCode').textContent = roomCode;
+  const ul = $('lobbyList'); ul.innerHTML = '';
+  lobbyPlayers.forEach((p, i) => {
+    const li = document.createElement('li');
+    const d = document.createElement('span'); d.className = 'dot'; d.style.background = COLORS[i % COLORS.length];
+    const n = document.createElement('span'); n.textContent = p.name;
+    li.append(d, n);
+    if (p.id === hostId) { const c = document.createElement('span'); c.className = 'crown'; c.textContent = 'voditelj'; li.append(c); }
+    else if (p.id === myId) { const c = document.createElement('span'); c.className = 'me'; c.textContent = 'ti'; li.append(c); }
+    ul.append(li);
+  });
+  const isHost = hostId === myId;
+  show('pubTag', lobbyPub);
+  $('btnStart').classList.toggle('hidden', !isHost);
+  $('btnStart').disabled = lobbyPlayers.length < 2;
+  let txt;
+  if (lobbyPub && lobbyPlayers.length >= 2 && lobbyCd > 0) txt = 'Igra počinje za ' + lobbyCd + ' s…' + (isHost ? ' (ili pokreni odmah)' : '');
+  else if (lobbyPub && lobbyPlayers.length < 2) txt = 'Čekamo još igrača – igra kreće sama čim se spoji drugi.';
+  else if (isHost) txt = lobbyPlayers.length < 2 ? 'Čekamo još barem jednog igrača…' : 'Svi spremni? Pokreni!';
+  else txt = 'Čekamo da voditelj pokrene igru…';
+  $('lobbyErr').textContent = txt;
+}
+
+// ---------- igra ----------
+const cv = $('cv'), ctx = cv.getContext('2d');
+const fogC = document.createElement('canvas'), fogX = fogC.getContext('2d');
+let dpr = 1, cssW = 0, cssH = 0;
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cssW = innerWidth; cssH = innerHeight;
+  cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+  fogC.width = cv.width; fogC.height = cv.height;
+}
+addEventListener('resize', resize); resize();
+
+const keys = new Set();
+const joy = { id: null, ox: 0, oy: 0, x: 0, y: 0 };
+let sprintBtn = false;
+
+function startGame(m) {
+  const rows = m.maze, H = rows.length, W = rows[0].length;
+  const grid = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) grid[y * W + x] = rows[y][x] === '1' ? 1 : 0;
+  const names = new Map();
+  m.players.forEach(p => names.set(p.id, { name: p.name, c: p.c }));
+  myId = m.you;
+  G = {
+    role: m.role, cfg: m.cfg, grid, W, H, names,
+    ents: new Map(), seq: 0, st: null,
+    me: { x: 0, y: 0, fx: 1, fy: 0, ready: false },
+    cam: { x: 0, y: 0 },
+    alive: true, ph: -1, pl: 0, pulseStart: 0, lastSec: -1,
+    specIdx: 0, nextBeat: 0, kd: 9999, lastSend: 0, lastIn: '',
+    toastT: 0, killReqAt: 0,
+  };
+  inGame = true; showingEnd = false;
+  screen('game');
+  $('roleBadge').className = m.role === 'k' ? 'k' : 's';
+  $('roleBadge').textContent = m.role === 'k' ? 'UBOJICA' : 'PREŽIVJELI';
+  show('stamWrap', m.role === 's');
+  show('cdWrap', m.role === 'k');
+  show('stickBase', false);
+  const touch = isTouch;
+  $('btnAct').textContent = 'UBIJ'; $('btnAct').className = 'act';
+  show('btnAct', touch && m.role === 'k');
+  show('btnSprint', touch && m.role === 's');
+  $('hint').textContent = touch ? '' :
+    (m.role === 'k' ? 'WASD / strelice – kretanje · RAZMAK – ubij' : 'WASD / strelice – kretanje · SHIFT – trčanje');
+  $('timer').textContent = fmt(m.cfg.ROUND); $('timer').classList.remove('low');
+  $('aliveInfo').textContent = '';
+  $('banner').innerHTML = '';
+  if (m.spec) enterSpectator('Runda je već krenula – gledaš, u sljedeću ulaziš. RAZMAK: promijeni igrača');
+  audio();
+  cancelAnimationFrame(rafId);
+  lastT = performance.now();
+  rafId = requestAnimationFrame(loop);
+}
+
+function stopGame() {
+  inGame = false;
+  cancelAnimationFrame(rafId);
+  G = null;
+}
+
+function toast(text, cls = '', ms = 2200) {
+  const t = $('toast');
+  t.textContent = text; t.className = 'show ' + cls;
+  clearTimeout(G ? G.toastT : 0);
+  const id = setTimeout(() => { t.classList.remove('show'); }, ms);
+  if (G) G.toastT = id;
+}
+
+function onState(m) {
+  if (!G) return;
+  const now = performance.now();
+  G.st = m; G.seq++;
+  const you = m.you;
+  if (!G.me.ready) { G.me.x = you.x; G.me.y = you.y; G.me.ready = true; G.cam.x = you.x; G.cam.y = you.y; }
+
+  for (const e of m.e) {
+    const [id, x, y, a, k] = e;
+    let ent = G.ents.get(id);
+    if (!ent) { ent = { x, y, tx: x, ty: y, fx: 1, fy: 0, seen: 0 }; G.ents.set(id, ent); }
+    if (now - ent.seen > 400) { ent.x = x; ent.y = y; }
+    ent.tx = x; ent.ty = y; ent.alive = !!a; ent.k = !!k; ent.seen = now; ent.stamp = G.seq;
+  }
+  G.kd = m.kd === undefined ? 9999 : m.kd;
+
+  // faze
+  if (m.ph !== G.ph) {
+    if (m.ph === 1) { sfx.go(); }
+    G.ph = m.ph;
+  }
+  // otkrivanje
+  if (m.pl && !G.pl) {
+    G.pulseStart = now;
+    sfx.pulse();
+    if (G.role === 'k') toast('Njušiš ih! Svi su na vidiku…', 'warn', 2600);
+    else if (G.alive) toast('Ubojica te osjeća! Mrdni!', 'bad', 2600);
+  }
+  G.pl = m.pl;
+  // smrt
+  if (G.alive && !you.a) enterSpectator('Eliminiran si – RAZMAK: promijeni igrača koji gledaš');
+
+  // HUD
+  $('timer').textContent = fmt(m.ph ? m.tl : G.cfg.ROUND);
+  $('timer').classList.toggle('low', m.ph === 1 && m.tl <= 10);
+  $('aliveInfo').textContent = 'Preživjelih: ' + m.al;
+  if (G.role === 's') {
+    $('stam').style.width = Math.max(0, you.st / G.cfg.STAM_MAX * 100) + '%';
+    $('stam').classList.toggle('ex', !!you.ex);
+  } else {
+    $('cd').style.width = (100 - Math.min(100, you.kc / G.cfg.KILL_CD * 100)) + '%';
+    $('btnAct').classList.toggle('cool', you.kc > 0 || m.fz > 0);
+  }
+  if (m.ph === 1 && m.tl <= 10 && G.alive) {
+    const s = Math.ceil(m.tl);
+    if (s !== G.lastSec && s > 0) { G.lastSec = s; sfx.beep(); }
+  }
+
+  // natpis
+  const b = $('banner');
+  if (!G.alive) {
+    if (b.innerHTML) b.innerHTML = '';
+  } else if (m.ph === 0) {
+    const n = Math.ceil(m.il);
+    b.innerHTML = '<div class="num">' + n + '</div><div class="big" style="color:' + (G.role === 'k' ? RED : '#4fc3f7') + '">' +
+      (G.role === 'k' ? 'TI SI UBOJICA' : 'PREŽIVI!') + '</div><div class="mid">' +
+      (G.role === 'k' ? 'Pronađi sve preživjele prije isteka vremena.' : 'Jedan od vas je ubojica. Izdrži 2 minute.') + '</div>';
+    if (n !== G.lastIntro) { G.lastIntro = n; sfx.beep(); }
+  } else if (m.fz > 0) {
+    const n = Math.ceil(m.fz);
+    b.innerHTML = G.role === 'k'
+      ? '<div class="big" style="color:' + RED + '">Budiš se… ' + n + '</div><div class="mid">Preživjeli bježe!</div>'
+      : '<div class="big" style="color:#ffd54f">BJEŽI! ' + n + '</div><div class="mid">Ubojica se budi.</div>';
+  } else if (b.innerHTML) {
+    b.innerHTML = '';
+  }
+}
+
+function enterSpectator(hint) {
+  G.alive = false;
+  G.specIdx = 0;
+  $('roleBadge').className = 'd'; $('roleBadge').textContent = 'GLEDATELJ';
+  show('stamWrap', false); show('cdWrap', false); show('btnSprint', false);
+  $('banner').innerHTML = '';
+  if (isTouch) { $('btnAct').textContent = 'DALJE'; $('btnAct').className = 'act spec'; show('btnAct', true); }
+  else show('btnAct', false);
+  $('hint').textContent = isTouch ? '' : hint;
+}
+
+function onEvent(m) {
+  if (!G || m.k !== 'kill') return;
+  const me = G.me;
+  const d = Math.hypot(m.x - me.x, m.y - me.y);
+  sfx.kill(Math.max(0.15, 1 - d / 900));
+  if (m.id === myId) toast('Ubojica te je dostigao…', 'bad', 3000);
+  else toast('☠ ' + m.name + ' je eliminiran/a', 'bad', 2400);
+}
+
+function onEnd(m) {
+  const wasInGame = inGame;
+  const me = lobbyPlayers.find(p => p.id === myId);
+  const myRole = G ? G.role : 's';
+  stopGame();
+  showingEnd = true;
+  const iWon = m.winner === 'k' ? myRole === 'k' : myRole === 's';
+  const t = $('endTitle');
+  t.textContent = m.winner === 'k' ? 'UBOJICA POBJEĐUJE' : 'PREŽIVJELI POBJEĐUJU';
+  t.className = iWon ? 'win' : 'lose';
+  $('endReason').textContent = (iWon ? 'Pobijedio si! ' : 'Izgubio si. ') + m.reason + '. Ubojica: ' + m.killer + '.';
+  const tb = $('endTable'); tb.innerHTML = '';
+  const rows = m.res.slice().sort((a, b) => (a.role === 'k' ? -1 : 0) - (b.role === 'k' ? -1 : 0) || (b.t || 0) - (a.t || 0));
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    const a = document.createElement('td'); a.textContent = r.name;
+    const b = document.createElement('td'); b.className = 'r';
+    if (r.role === 'k') { a.className = 'k-tag'; a.textContent = '☠ ' + r.name; b.textContent = 'ubojica'; }
+    else if (r.alive) { b.innerHTML = '<span class="ok-tag">preživio/la</span>'; }
+    else { b.textContent = 'pao/la na ' + fmt(r.t); }
+    tr.append(a, b); tb.append(tr);
+  });
+  screen('end');
+  if (wasInGame) (iWon ? sfx.win : sfx.lose)();
+}
+
+// ---------- ulaz ----------
+addEventListener('keydown', e => {
+  audio();
+  if (!inGame) return;
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+  if (e.repeat) { keys.add(e.code); return; }
+  keys.add(e.code);
+  if (e.code === 'Space') action();
+});
+addEventListener('keyup', e => { keys.delete(e.code); });
+addEventListener('blur', () => keys.clear());
+
+function action() {
+  if (!G) return;
+  if (G.alive) {
+    if (G.role === 'k') {
+      const now = performance.now();
+      if (now - G.killReqAt < 120) return;
+      G.killReqAt = now;
+      send({ t: 'kill' });
+      if (G.st && (G.st.you.kc > 0 || G.st.fz > 0)) return;
+      sfx.miss();
+    }
+  } else {
+    G.specIdx++;
+  }
+}
+
+$('btnAct').addEventListener('pointerdown', e => { e.preventDefault(); audio(); action(); });
+const sb = $('btnSprint');
+sb.addEventListener('pointerdown', e => { e.preventDefault(); sprintBtn = true; });
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => sb.addEventListener(ev, () => { sprintBtn = false; }));
+
+// joystick (lijeva strana ekrana)
+cv.addEventListener('pointerdown', e => {
+  audio();
+  if (!inGame || !isTouch || joy.id !== null) return;
+  if (e.clientX > cssW * 0.6) return;
+  joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY; joy.x = joy.y = 0;
+  const base = $('stickBase');
+  base.style.left = joy.ox + 'px'; base.style.top = joy.oy + 'px';
+  show('stickBase', true);
+  $('stickKnob').style.transform = 'translate(0,0)';
+  try { cv.setPointerCapture(e.pointerId); } catch (x) {}
+});
+cv.addEventListener('pointermove', e => {
+  if (e.pointerId !== joy.id) return;
+  let dx = e.clientX - joy.ox, dy = e.clientY - joy.oy;
+  const R = 55, l = Math.hypot(dx, dy);
+  if (l > R) { dx = dx / l * R; dy = dy / l * R; }
+  joy.x = dx / R; joy.y = dy / R;
+  $('stickKnob').style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+});
+function joyEnd(e) {
+  if (e.pointerId !== joy.id) return;
+  joy.id = null; joy.x = joy.y = 0; show('stickBase', false);
+}
+cv.addEventListener('pointerup', joyEnd);
+cv.addEventListener('pointercancel', joyEnd);
+
+function readInput() {
+  let x = 0, y = 0;
+  if (keys.has('ArrowLeft') || keys.has('KeyA')) x -= 1;
+  if (keys.has('ArrowRight') || keys.has('KeyD')) x += 1;
+  if (keys.has('ArrowUp') || keys.has('KeyW')) y -= 1;
+  if (keys.has('ArrowDown') || keys.has('KeyS')) y += 1;
+  x += joy.x; y += joy.y;
+  const l = Math.hypot(x, y);
+  if (l > 1) { x /= l; y /= l; }
+  if (l < 0.12) { x = 0; y = 0; }
+  const s = keys.has('ShiftLeft') || keys.has('ShiftRight') || sprintBtn;
+  return { x, y, s };
+}
+
+// ---------- fizika (ista kao na serveru, za predikciju) ----------
+function solid(tx, ty) {
+  return ty < 0 || tx < 0 || ty >= G.H || tx >= G.W || G.grid[ty * G.W + tx] === 1;
+}
+function hits(x, y) {
+  const T = G.cfg.T, R = G.cfg.R;
+  const x0 = Math.floor((x - R) / T), x1 = Math.floor((x + R) / T);
+  const y0 = Math.floor((y - R) / T), y1 = Math.floor((y + R) / T);
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+    if (!solid(tx, ty)) continue;
+    const cx = Math.max(tx * T, Math.min(x, tx * T + T));
+    const cy = Math.max(ty * T, Math.min(y, ty * T + T));
+    const dx = x - cx, dy = y - cy;
+    if (dx * dx + dy * dy < R * R) return true;
+  }
+  return false;
+}
+
+// ---------- petlja ----------
+let lastT = 0;
+function loop(now) {
+  if (!inGame || !G) return;
+  rafId = requestAnimationFrame(loop);
+  const dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  update(dt, now);
+  render(now);
+}
+
+function update(dt, now) {
+  const st = G.st, me = G.me;
+  if (!st) return;
+  const inp = readInput();
+
+  // slanje ulaza
+  const sig = inp.x.toFixed(2) + ',' + inp.y.toFixed(2) + ',' + (inp.s ? 1 : 0);
+  if (G.alive && (sig !== G.lastIn || now - G.lastSend > 250) && now - G.lastSend > 40) {
+    send({ t: 'in', x: +inp.x.toFixed(3), y: +inp.y.toFixed(3), s: inp.s ? 1 : 0 });
+    G.lastIn = sig; G.lastSend = now;
+  }
+
+  // predikcija vlastitog kretanja
+  if (G.alive && st.ph === 1) {
+    const moving = Math.hypot(inp.x, inp.y) > 0.05;
+    let speed;
+    if (G.role === 'k') speed = st.fz > 0 ? 0 : G.cfg.VK;
+    else speed = (inp.s && moving && !st.you.ex && st.you.st > 0.02) ? G.cfg.VSPRINT : G.cfg.VS;
+    if (moving && speed > 0) {
+      const dx = inp.x * speed * dt, dy = inp.y * speed * dt;
+      if (!hits(me.x + dx, me.y)) me.x += dx;
+      if (!hits(me.x, me.y + dy)) me.y += dy;
+      me.fx = inp.x; me.fy = inp.y;
+    }
+    // uskladi sa serverom tek kad se razlika nakupi
+    const ex = st.you.x - me.x, ey = st.you.y - me.y, err = Math.hypot(ex, ey);
+    if (err > 160) { me.x = st.you.x; me.y = st.you.y; }
+    else if (err > 70) { me.x += ex * Math.min(1, dt * 4); me.y += ey * Math.min(1, dt * 4); }
+  } else if (G.alive) {
+    me.x = st.you.x; me.y = st.you.y;
+  }
+
+  // ostali igrači
+  const k = 1 - Math.exp(-dt * 16);
+  for (const ent of G.ents.values()) {
+    const ox = ent.x, oy = ent.y;
+    ent.x += (ent.tx - ent.x) * k; ent.y += (ent.ty - ent.y) * k;
+    const mx = ent.x - ox, my = ent.y - oy;
+    if (Math.hypot(mx, my) > 0.05) { ent.fx = mx; ent.fy = my; }
+  }
+
+  // kamera
+  let tx = me.x, ty = me.y;
+  if (!G.alive) {
+    const list = specList();
+    if (list.length) {
+      const e = list[G.specIdx % list.length];
+      tx = e.x; ty = e.y;
+      G.specName = (G.names.get(e.id) || {}).name || '';
+    } else { tx = st.you.x; ty = st.you.y; }
+    G.cam.x += (tx - G.cam.x) * Math.min(1, dt * 6);
+    G.cam.y += (ty - G.cam.y) * Math.min(1, dt * 6);
+    if (G.specName) $('aliveInfo').textContent = 'Preživjelih: ' + st.al + ' · gledaš: ' + G.specName;
+  } else { G.cam.x = tx; G.cam.y = ty; }
+
+  // otkucaji srca
+  if (G.role === 's' && G.alive && st.ph === 1 && G.kd < 450 && now >= G.nextBeat) {
+    const f = Math.max(0, Math.min(1, G.kd / 450));
+    sfx.heart(0.12 + (1 - f) * 0.45);
+    G.nextBeat = now + 330 + f * 900;
+  }
+}
+
+function specList() {
+  const out = [];
+  for (const [id, e] of G.ents) if (e.stamp === G.seq && e.alive) { e.id = id; out.push(e); }
+  out.sort((a, b) => (a.id > b.id ? 1 : -1));
+  return out;
+}
+
+// ---------- crtanje ----------
+function render(now) {
+  const st = G.st, cfg = G.cfg, T = cfg.T;
+  const Z = Math.max(1, Math.min(2.4, Math.min(cssW, cssH) / 460));
+  const k = dpr * Z;
+  const vw = cssW / Z, vh = cssH / Z;
+  const camx = G.cam.x - vw / 2, camy = G.cam.y - vh / 2;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#080a0f'; ctx.fillRect(0, 0, cv.width, cv.height);
+  if (!st) return;
+  ctx.setTransform(k, 0, 0, k, -camx * k, -camy * k);
+
+  const x0 = Math.max(0, Math.floor(camx / T)), x1 = Math.min(G.W - 1, Math.floor((camx + vw) / T));
+  const y0 = Math.max(0, Math.floor(camy / T)), y1 = Math.min(G.H - 1, Math.floor((camy + vh) / T));
+  const g = G.grid, W = G.W;
+  for (let ty = y0; ty <= y1; ty++) {
+    for (let tx = x0; tx <= x1; tx++) {
+      const wall = g[ty * W + tx] === 1;
+      if (!wall) {
+        ctx.fillStyle = ((tx + ty) & 1) ? '#1b2130' : '#1d2333';
+        ctx.fillRect(tx * T, ty * T, T, T);
+      } else {
+        ctx.fillStyle = '#2f3750';
+        ctx.fillRect(tx * T, ty * T, T, T);
+        ctx.fillStyle = '#4b5779';
+        if (ty > 0 && !g[(ty - 1) * W + tx]) ctx.fillRect(tx * T, ty * T, T, 3);
+        if (ty < G.H - 1 && !g[(ty + 1) * W + tx]) ctx.fillRect(tx * T, ty * T + T - 3, T, 3);
+        if (tx > 0 && !g[ty * W + tx - 1]) ctx.fillRect(tx * T, ty * T, 3, T);
+        if (tx < W - 1 && !g[ty * W + tx + 1]) ctx.fillRect(tx * T + T - 3, ty * T, 3, T);
+      }
+    }
+  }
+
+  // ostali igrači
+  for (const [id, e] of G.ents) {
+    if (e.stamp !== G.seq) continue;
+    const info = G.names.get(id) || { name: '?', c: 0 };
+    drawPlayer(e.x, e.y, e.k ? RED : COLORS[info.c % COLORS.length], e.alive, e.k ? '☠ ' + info.name : info.name, e.k, e.fx, e.fy);
+  }
+  // ja
+  if (G.alive) {
+    const info = G.names.get(myId) || { name: '', c: 0 };
+    drawPlayer(G.me.x, G.me.y, G.role === 'k' ? RED : COLORS[info.c % COLORS.length], true, '', G.role === 'k', G.me.fx, G.me.fy, true);
+  }
+
+  // magla
+  if (G.alive) {
+    const see = G.role === 'k' ? cfg.SEE_K : cfg.SEE_S;
+    fogX.setTransform(1, 0, 0, 1, 0, 0);
+    fogX.globalCompositeOperation = 'source-over';
+    fogX.fillStyle = 'rgba(4,5,9,0.94)';
+    fogX.fillRect(0, 0, fogC.width, fogC.height);
+    fogX.globalCompositeOperation = 'destination-out';
+    const sx = (G.me.x - camx) * k, sy = (G.me.y - camy) * k, r = see * k;
+    const gr = fogX.createRadialGradient(sx, sy, r * 0.12, sx, sy, r);
+    gr.addColorStop(0, 'rgba(0,0,0,1)');
+    gr.addColorStop(0.62, 'rgba(0,0,0,0.9)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    fogX.fillStyle = gr;
+    fogX.beginPath(); fogX.arc(sx, sy, r, 0, Math.PI * 2); fogX.fill();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(fogC, 0, 0);
+
+    // "njuškanje" ubojice: svi preživjeli kroz tamu
+    if (G.role === 'k' && st.pl) {
+      ctx.setTransform(k, 0, 0, k, -camx * k, -camy * k);
+      const pulse = 0.6 + 0.4 * Math.sin(now / 90);
+      for (const [id, e] of G.ents) {
+        if (e.stamp !== G.seq || !e.alive) continue;
+        ctx.strokeStyle = 'rgba(255,80,80,' + pulse + ')'; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(e.x, e.y, 16 + 4 * pulse, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,80,80,0.9)';
+        ctx.beginPath(); ctx.arc(e.x, e.y, 5, 0, Math.PI * 2); ctx.fill();
+      }
+      const el = (now - G.pulseStart) / (cfg.PULSE_LEN * 1000);
+      if (el >= 0 && el <= 1) {
+        ctx.strokeStyle = 'rgba(255,60,60,' + (0.5 * (1 - el)) + ')'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(G.me.x, G.me.y, el * 700, 0, Math.PI * 2); ctx.stroke();
+      }
+    }
+    // preživjeli: crveni rub kad je ubojica blizu / kad njuši
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    let danger = 0;
+    if (G.role === 's' && st.ph === 1) {
+      danger = Math.max(0, 1 - G.kd / 450) * 0.5;
+      if (st.pl) danger = Math.max(danger, 0.35 + 0.15 * Math.sin(now / 100));
+    }
+    if (danger > 0.01) {
+      const cx = cv.width / 2, cy = cv.height / 2, rr = Math.hypot(cx, cy);
+      const vg = ctx.createRadialGradient(cx, cy, rr * 0.45, cx, cy, rr);
+      vg.addColorStop(0, 'rgba(160,0,0,0)');
+      vg.addColorStop(1, 'rgba(180,0,0,' + danger + ')');
+      ctx.fillStyle = vg; ctx.fillRect(0, 0, cv.width, cv.height);
+    }
+  }
+}
+
+function drawPlayer(x, y, color, alive, name, killer, fx, fy, isMe) {
+  const R = G.cfg.R;
+  if (!alive) {
+    ctx.fillStyle = '#555c6e';
+    ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#1b1f2b'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(x - 5, y - 5); ctx.lineTo(x + 5, y + 5); ctx.moveTo(x + 5, y - 5); ctx.lineTo(x - 5, y + 5); ctx.stroke();
+    return;
+  }
+  if (killer) {
+    ctx.fillStyle = 'rgba(255,40,40,0.22)';
+    ctx.beginPath(); ctx.arc(x, y, R + 9, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 2; ctx.stroke();
+  if (isMe) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(x, y, R + 3, 0, Math.PI * 2); ctx.stroke();
+  }
+  // oči
+  const l = Math.hypot(fx, fy) || 1, ux = fx / l, uy = fy / l, px = -uy, py = ux;
+  ctx.fillStyle = '#fff';
+  for (const s of [-1, 1]) {
+    ctx.beginPath(); ctx.arc(x + ux * 3.5 + px * 3.2 * s, y + uy * 3.5 + py * 3.2 * s, 2.3, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = killer ? '#600' : '#111';
+  for (const s of [-1, 1]) {
+    ctx.beginPath(); ctx.arc(x + ux * 4.5 + px * 3.2 * s, y + uy * 4.5 + py * 3.2 * s, 1.1, 0, Math.PI * 2); ctx.fill();
+  }
+  if (name) {
+    ctx.font = 'bold 11px system-ui,sans-serif'; ctx.textAlign = 'center';
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.strokeText(name, x, y - R - 6);
+    ctx.fillStyle = killer ? '#ff7a7a' : '#fff'; ctx.fillText(name, x, y - R - 6);
+  }
+}
+
+screen('menu');
+})();
+</script>
+</body>
+</html>
